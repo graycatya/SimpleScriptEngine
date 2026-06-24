@@ -401,6 +401,133 @@ static void testSimpleScriptValue() {
 }
 
 // ============================================================================
+// 脚本调用子模块脚本测试
+// ============================================================================
+// 演示：主脚本通过各语言的原生模块机制加载子模块脚本，并调用其中定义的函数。
+//
+//   LuaJIT     → dofile()         (luaL_openlibs 已加载标准库)
+//   ChaiScript → use()            (ChaiScript 内置)
+//   QuickJS    → import/export    (ES Module，引擎已注册模块加载器)
+//   AngelScript → #include        (预处理器内联合并，同模块直接调用)
+// ============================================================================
+
+static void testScriptImportSubModule(std::unique_ptr<ScriptEngine> engine) {
+    const char* name = engine->engineName();
+    std::string ext(engine->fileExtension());
+
+    engine->initialize();
+
+    std::string subPath = "test_sub_module" + ext;
+    std::string subCode;
+
+    // ---- 1. 构造子模块脚本（各语言语法） ----
+    if (std::string(name) == "LuaJIT") {
+        subCode = "local M = {}\n"
+                  "M.version = \"1.0.0\"\n"
+                  "function M.get_info()\n"
+                  "  return \"LuaJIT sub-module v\" .. M.version\n"
+                  "end\n"
+                  "return M\n";
+    } else if (std::string(name) == "QuickJS") {
+        subCode = "export function get_info() {\n"
+                  "  return \"QuickJS sub-module v1.0.0\";\n"
+                  "}\n";
+    } else if (std::string(name) == "ChaiScript") {
+        subCode = "def get_info() {\n"
+                  "  return \"ChaiScript sub-module v1.0.0\";\n"
+                  "}\n";
+    } else if (std::string(name) == "AngelScript") {
+        subCode = "string get_info() {\n"
+                  "  return \"AngelScript sub-module v1.0.0\";\n"
+                  "}\n";
+    }
+
+    // 写入子模块文件
+    {
+        std::ofstream ofs(subPath);
+        ofs << subCode;
+    }
+
+    // ---- 2. 主脚本加载子模块并调用 ----
+    if (std::string(name) == "LuaJIT") {
+        // Lua 原生: dofile() 加载文件，返回模块 table
+        std::string mainCode =
+            "local mod = dofile(\"" + subPath + "\")\n"
+            "result = mod.get_info()\n";
+
+        TEST(std::string(name) + " — dofile sub-module");
+        bool ok = engine->executeString(mainCode);
+        CHECK(ok, "dofile failed");
+
+        TEST(std::string(name) + " — verify sub-module result");
+        auto r = engine->getGlobal("result");
+        std::string s = r.asString();
+        CHECK(!s.empty() && s.find("sub-module") != std::string::npos,
+              "unexpected: " + s);
+    } else if (std::string(name) == "ChaiScript") {
+        // ChaiScript 原生: use() 加载文件
+        std::string mainCode =
+            "use(\"" + subPath + "\")\n"
+            "var result = get_info()\n";
+
+        TEST(std::string(name) + " — use sub-module");
+        bool ok = engine->executeString(mainCode);
+        CHECK(ok, "use failed");
+
+        TEST(std::string(name) + " — verify sub-module result");
+        auto r = engine->getGlobal("result");
+        std::string s = r.asString();
+        CHECK(!s.empty() && s.find("sub-module") != std::string::npos,
+              "unexpected: " + s);
+    } else if (std::string(name) == "QuickJS") {
+        // QuickJS ES Module: 主模块用 import 导入子模块的 export。
+        // executeFile 自动检测 import/export 关键词，切换到 module 模式求值。
+        std::string mainPath = "test_main_import.js";
+        std::string mainCode =
+            "import { get_info } from \"./" + subPath + "\";\n"
+            "globalThis.result = get_info();\n";
+        {
+            std::ofstream ofs(mainPath);
+            ofs << mainCode;
+        }
+
+        TEST(std::string(name) + " — import sub-module (ES Module)");
+        bool ok = engine->executeFile(mainPath);
+        CHECK(ok, "import failed");
+
+        TEST(std::string(name) + " — verify sub-module result");
+        auto r = engine->getGlobal("result");
+        std::string s = r.asString();
+        CHECK(!s.empty() && s.find("sub-module") != std::string::npos,
+              "unexpected: " + s);
+
+        // 清理主模块文件
+        std::remove(mainPath.c_str());
+    } else if (std::string(name) == "AngelScript") {
+        // AngelScript #include 预处理器：源码合并进当前模块，直接调用子模块函数
+        std::string mainCode =
+            "#include \"" + subPath + "\"\n"
+            "string get_wrapper() {\n"
+            "  return get_info();\n"
+            "}\n";
+
+        TEST(std::string(name) + " — #include sub-module");
+        bool ok = engine->executeString(mainCode);
+        CHECK(ok, "#include failed");
+
+        TEST(std::string(name) + " — call sub-module get_info");
+        auto result = engine->call("get_wrapper");
+        std::string s = result.asString();
+        CHECK(!s.empty() && s.find("sub-module") != std::string::npos,
+              "unexpected: " + s);
+    }
+
+    // ---- 清理 ----
+    std::remove(subPath.c_str());
+    engine->shutdown();
+}
+
+// ============================================================================
 // SimpleScriptManager 路由测试
 // ============================================================================
 
@@ -618,7 +745,22 @@ int main() {
     testEngineHasFunction(std::make_unique<AngelScriptEngine>());
 #endif
 
-    // ---- 3. SimpleScriptManager ----
+    // ---- 3. 脚本调用子模块脚本 ----
+    std::cout << "\n--- 脚本调用子模块脚本测试 ---\n\n";
+#ifdef SIMPLESCRIPTENGINE_ENABLE_LUAJIT
+    testScriptImportSubModule(std::make_unique<LuaJITEngine>());
+#endif
+#ifdef SIMPLESCRIPTENGINE_ENABLE_QUICKJS
+    testScriptImportSubModule(std::make_unique<QuickJSEngine>());
+#endif
+#ifdef SIMPLESCRIPTENGINE_ENABLE_CHAISCRIPT
+    testScriptImportSubModule(std::make_unique<ChaiScriptEngine>());
+#endif
+#ifdef SIMPLESCRIPTENGINE_ENABLE_ANGELSCRIPT
+    testScriptImportSubModule(std::make_unique<AngelScriptEngine>());
+#endif
+
+    // ---- 4. SimpleScriptManager ----
     testManager();
 
     // ---- 结果 ----

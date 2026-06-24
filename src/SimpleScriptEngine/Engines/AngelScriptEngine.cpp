@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -66,6 +67,9 @@ public:
         // 注册标准字符串类型
         RegisterStdString(engine_);
 
+        // 记录 string 类型 ID，用于 getContextReturn 中检测字符串返回值
+        stringTypeId_ = engine_->GetTypeIdByDecl("string");
+
         // 注册通用数组类型（如果需要）
         RegisterScriptArray(engine_, true);
 
@@ -99,9 +103,12 @@ public:
     bool executeString(const std::string& code) {
         if (!ensureInit()) return false;
 
+        // 预处理 #include 指令
+        std::string resolved = resolveIncludes(code, "");
+
         // 创建临时模块
         asIScriptModule* mod = engine_->GetModule("__exec__", asGM_ALWAYS_CREATE);
-        int r = mod->AddScriptSection("inline", code.c_str(), code.size());
+        int r = mod->AddScriptSection("inline", resolved.c_str(), resolved.size());
         if (r < 0) {
             reportError("Failed to add script section");
             return false;
@@ -129,11 +136,15 @@ public:
         oss << file.rdbuf();
         std::string code = oss.str();
 
+        // 预处理 #include 指令（基于该文件所在目录解析相对路径）
+        std::string parentDir = std::filesystem::path(path).parent_path().string();
+        std::string resolved = resolveIncludes(code, parentDir);
+
         // 用文件名作为模块名
         std::string modName = std::filesystem::path(path).stem().string();
         asIScriptModule* mod = engine_->GetModule(modName.c_str(), asGM_ALWAYS_CREATE);
 
-        int r = mod->AddScriptSection(path.c_str(), code.c_str(), code.size());
+        int r = mod->AddScriptSection(path.c_str(), resolved.c_str(), resolved.size());
         if (r < 0) {
             reportError("Failed to add script section for " + path);
             return false;
@@ -326,6 +337,9 @@ private:
     std::unordered_map<std::string, double>      globalDoubles_;
     std::unordered_map<std::string, std::string> globalStrings_;
 
+    // AngelScript 注册的 string 类型 ID
+    int stringTypeId_ = 0;
+
     bool ensureInit() {
         if (!initialized_ || !engine_) {
             reportError("AngelScript engine not initialized");
@@ -340,6 +354,88 @@ private:
         } else {
             std::cerr << "[AngelScript] Error: " << msg << std::endl;
         }
+    }
+
+    // ---- #include 预处理器 ----
+    // AngelScript 原生的 #include 依赖 CScriptBuilder，当前实现使用
+    // asIScriptModule 原生 API。这里提供简单的预处理器：递归扫描
+    // #include "path" 指令，读取文件内容并内联替换。
+
+    std::string resolveIncludes(const std::string& source,
+                                const std::string& parentDir,
+                                std::set<std::string>* visited = nullptr) {
+        // 管理已访问路径集合，防止循环引用
+        bool ownSet = (visited == nullptr);
+        if (ownSet) visited = new std::set<std::string>();
+
+        std::string result;
+        result.reserve(source.size());
+
+        std::istringstream iss(source);
+        std::string line;
+        while (std::getline(iss, line)) {
+            // 匹配 #include "path"
+            std::string trimmed = line;
+            // 去除前导空白
+            size_t start = trimmed.find_first_not_of(" \t\r");
+            if (start != std::string::npos && trimmed.substr(start, 9) == "#include ") {
+                // 提取引号内的路径
+                size_t quoteBegin = trimmed.find('"', start + 9);
+                size_t quoteEnd   = trimmed.find('"', quoteBegin + 1);
+                if (quoteBegin != std::string::npos && quoteEnd != std::string::npos) {
+                    std::string includePath = trimmed.substr(quoteBegin + 1,
+                                                             quoteEnd - quoteBegin - 1);
+
+                    // 解析路径：绝对路径直接使用，相对路径拼接到父目录
+                    std::string resolvedPath;
+                    bool isAbsolute = (!includePath.empty() && includePath[0] == '/') ||
+                                      (includePath.size() >= 2 && includePath[1] == ':');
+                    if (isAbsolute) {
+                        resolvedPath = includePath;
+                    } else if (!parentDir.empty()) {
+                        resolvedPath = parentDir + "/" + includePath;
+                    } else {
+                        resolvedPath = includePath;
+                    }
+
+                    // 规范化为绝对路径
+                    try {
+                        resolvedPath = std::filesystem::absolute(
+                            std::filesystem::path(resolvedPath)).string();
+                    } catch (...) {}
+
+                    // 防止循环引用
+                    if (visited->count(resolvedPath)) {
+                        // 已包含过，跳过（保留空行以保持行号）
+                        result += "\n";
+                        continue;
+                    }
+                    visited->insert(resolvedPath);
+
+                    // 读取并递归处理包含文件
+                    std::ifstream incFile(resolvedPath);
+                    if (incFile.is_open()) {
+                        std::ostringstream incOss;
+                        incOss << incFile.rdbuf();
+                        std::string incSource = incOss.str();
+
+                        // 被包含文件以其所在目录作为父目录
+                        std::string incDir = std::filesystem::path(resolvedPath)
+                                                 .parent_path().string();
+                        result += resolveIncludes(incSource, incDir, visited);
+                        result += "\n";
+                    } else {
+                        reportError("Cannot open #include file: " + resolvedPath);
+                        result += line + "\n"; // 保留原始行
+                    }
+                    continue;
+                }
+            }
+            result += line + "\n";
+        }
+
+        if (ownSet) delete visited;
+        return result;
     }
 
     SimpleScriptValue callFunction(asIScriptFunction* func,
@@ -424,7 +520,17 @@ private:
             case asTYPEID_INT64:  return SimpleScriptValue::Int(static_cast<int64_t>(ctx->GetReturnQWord()));
             case asTYPEID_FLOAT:  return SimpleScriptValue::Num(ctx->GetReturnFloat());
             case asTYPEID_DOUBLE: return SimpleScriptValue::Num(ctx->GetReturnDouble());
-            default:              return SimpleScriptValue::Null();
+            default: {
+                // 处理对象/引用类型返回值（如 string）
+                if (typeId & asTYPEID_OBJHANDLE) {
+                    typeId &= ~asTYPEID_OBJHANDLE;
+                }
+                if (typeId == stringTypeId_ && ctx->GetReturnObject()) {
+                    auto* str = static_cast<std::string*>(ctx->GetReturnObject());
+                    return SimpleScriptValue::Str(*str);
+                }
+                return SimpleScriptValue::Null();
+            }
         }
     }
 };

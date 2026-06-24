@@ -48,6 +48,9 @@ public:
             return false;
         }
 
+        // 注册 ES Module 加载器，支持 import/export 语法
+        JS_SetModuleLoaderFunc(rt_, nullptr, moduleLoader, this);
+
         initialized_ = true;
         return true;
     }
@@ -108,8 +111,15 @@ public:
         oss << file.rdbuf();
         std::string code = oss.str();
 
+        // 自动检测 ES Module：含有 import/export 关键词则按 module 模式求值
+        bool isModule = (code.find("import ")  != std::string::npos ||
+                         code.find("export ")  != std::string::npos ||
+                         code.find("import{")  != std::string::npos ||
+                         code.find("import\n") != std::string::npos);
+        int flags = isModule ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL;
+
         JSValue result = JS_Eval(ctx_, code.c_str(), code.size(),
-                                 path.c_str(), JS_EVAL_TYPE_GLOBAL);
+                                 path.c_str(), flags);
         if (JS_IsException(result)) {
             handleException();
             JS_FreeValue(ctx_, result);
@@ -395,6 +405,41 @@ private:
         // TODO: 实现完整的 C 函数回调链
         // 这里需要绕过 QuickJS 的数据传递限制
         return JS_UNDEFINED;
+    }
+
+    // ---- ES Module 加载器 ----
+
+    // QuickJS 模块加载回调：读取文件并编译为 ES Module
+    static JSModuleDef* moduleLoader(JSContext* ctx,
+                                     const char* moduleName,
+                                     void* opaque) {
+        auto* impl = static_cast<Impl*>(opaque);
+        if (!impl) return nullptr;
+
+        // 读取模块文件
+        std::ifstream file(moduleName, std::ios::in | std::ios::binary);
+        if (!file.is_open()) {
+            JS_ThrowReferenceError(ctx, "could not open module '%s'", moduleName);
+            return nullptr;
+        }
+
+        std::ostringstream oss;
+        oss << file.rdbuf();
+        std::string code = oss.str();
+
+        // 编译为 ES Module
+        JSValue funcVal = JS_Eval(ctx, code.c_str(), code.size(),
+                                  moduleName,
+                                  JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+        if (JS_IsException(funcVal)) {
+            return nullptr;
+        }
+
+        // 从编译结果中提取 JSModuleDef 指针
+        // JS_Eval 模块编译返回的 funcVal 内部持有模块引用
+        JSModuleDef* m = reinterpret_cast<JSModuleDef*>(JS_VALUE_GET_PTR(funcVal));
+        JS_FreeValue(ctx, funcVal);
+        return m;
     }
 };
 
