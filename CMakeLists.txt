@@ -127,7 +127,11 @@ message(STATUS "[SIMPLESCRIPTENGINE] Core library added")
 
 if(SIMPLESCRIPTENGINE_BUILD_EXAMPLES)
     add_subdirectory(examples/SimpleScriptEngineExample)
-    message(STATUS "[SIMPLESCRIPTENGINE] Example added")
+    if(SIMPLESCRIPTENGINE_ENABLE_LUAJIT)
+        add_subdirectory(examples/SimpleScriptEngineLuaGetSystemInfo)
+        message(STATUS "[SIMPLESCRIPTENGINE] LuaGetSystemInfo example added")
+    endif()
+    message(STATUS "[SIMPLESCRIPTENGINE] Example(s) added")
 endif()
 
 # ============================================================================
