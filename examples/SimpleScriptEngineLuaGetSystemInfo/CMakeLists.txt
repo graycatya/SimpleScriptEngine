@@ -31,6 +31,9 @@ add_custom_command(TARGET SimpleScriptEngineLuaGetSystemInfo POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/sysinfo-macos.lua"
         "$<TARGET_FILE_DIR:SimpleScriptEngineLuaGetSystemInfo>/sysinfo-macos.lua"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/sysinfo-linux.lua"
+        "$<TARGET_FILE_DIR:SimpleScriptEngineLuaGetSystemInfo>/sysinfo-linux.lua"
     COMMENT "Copying sysinfo-*.lua to output directory"
 )
 

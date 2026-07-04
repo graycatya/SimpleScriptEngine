@@ -40,7 +40,7 @@ int main() {
 #elif defined(__APPLE__)
     std::string scriptPath = "sysinfo-macos.lua";
 #else
-    std::string scriptPath = "sysinfo-windows.lua"; // fallback
+    std::string scriptPath = "sysinfo-linux.lua";  // Linux (POSIX + /proc + /sys)
 #endif
 
     std::cout << "[C++] Loading script: " << scriptPath << std::endl;
