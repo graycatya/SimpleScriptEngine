@@ -1,5 +1,5 @@
 # ============================================================================
-# SimpleScriptEngine — LuaJIT FFI Windows System Info Example
+# SimpleScriptEngine — LuaJIT FFI System Info Example (Cross-Platform)
 # ============================================================================
 
 project(SimpleScriptEngineLuaGetSystemInfo LANGUAGES CXX)
@@ -23,12 +23,15 @@ set_target_properties(SimpleScriptEngineLuaGetSystemInfo PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-# 运行时依赖：将 sysinfo-windows.lua 复制到 exe 同级目录
+# 运行时依赖：将 lua 脚本复制到 exe 同级目录
 add_custom_command(TARGET SimpleScriptEngineLuaGetSystemInfo POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/sysinfo-windows.lua"
         "$<TARGET_FILE_DIR:SimpleScriptEngineLuaGetSystemInfo>/sysinfo-windows.lua"
-    COMMENT "Copying sysinfo-windows.lua to output directory"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/sysinfo-macos.lua"
+        "$<TARGET_FILE_DIR:SimpleScriptEngineLuaGetSystemInfo>/sysinfo-macos.lua"
+    COMMENT "Copying sysinfo-*.lua to output directory"
 )
 
 # MSVC 设置

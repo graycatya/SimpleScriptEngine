@@ -1,9 +1,11 @@
 // ============================================================================
-// SimpleScriptEngine — LuaJIT FFI Windows System Information Demo
+// SimpleScriptEngine — LuaJIT FFI System Information Demo (Cross-Platform)
 // ============================================================================
 // Demonstrates:
 //   1. Using LuaJITEngine to load and execute Lua scripts
-//   2. Lua scripts calling kernel32.dll / user32.dll / ntdll.dll via FFI
+//   2. Lua scripts calling OS-native APIs via FFI
+//       - Windows : kernel32.dll / user32.dll / ntdll.dll
+//       - macOS   : libSystem (sysctl, POSIX, etc.)
 //   3. Collecting CPU, memory, OS version, screen resolution, uptime, battery, etc.
 // ============================================================================
 
@@ -32,8 +34,15 @@ int main() {
     }
     std::cout << "[C++] Engine initialized successfully" << std::endl;
 
-    // ---- Load and execute Lua script from file ----
+    // ---- Select script by platform ----
+#if defined(_WIN32) || defined(_WIN64)
     std::string scriptPath = "sysinfo-windows.lua";
+#elif defined(__APPLE__)
+    std::string scriptPath = "sysinfo-macos.lua";
+#else
+    std::string scriptPath = "sysinfo-windows.lua"; // fallback
+#endif
+
     std::cout << "[C++] Loading script: " << scriptPath << std::endl;
 
     if (!engine.executeFile(scriptPath)) {
