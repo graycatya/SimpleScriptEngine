@@ -15,8 +15,19 @@ option(SIMPLESCRIPTENGINE_ENABLE_QUICKJS     "Enable QuickJS engine"       ON)
 option(SIMPLESCRIPTENGINE_ENABLE_CHAISCRIPT  "Enable ChaiScript engine"    ON)
 option(SIMPLESCRIPTENGINE_ENABLE_ANGELSCRIPT "Enable AngelScript engine"   ON)
 
+# ============================================================================
+# SSEP 脚本保护 (Pak + AES-256-GCM + Anti-Debug)
+# ============================================================================
+option(SIMPLESCRIPTENGINE_ENABLE_PAK_PROTECTION "Enable SSEP script pak protection" OFF)
+set(SIMPLESCRIPTENGINE_ANTI_DEBUG "LIGHT" CACHE STRING "Anti-debug level: OFF, LIGHT, HEAVY")
+
+if(SIMPLESCRIPTENGINE_ENABLE_PAK_PROTECTION)
+    find_package(OpenSSL REQUIRED)
+endif()
+
 option(SIMPLESCRIPTENGINE_BUILD_EXAMPLES     "Build example programs"      ON)
 option(SIMPLESCRIPTENGINE_BUILD_SHARED       "Build as shared library"     OFF)
+option(SIMPLESCRIPTENGINE_BUILD_TOOLS        "Build SSEP tools (PakBuilder)" ON)
 
 option(ENABLE_PROXY "Enable proxy for network requests" OFF)
 set(DEFAULT_HTTP_PROXY "" CACHE STRING "Default HTTP proxy URL")
@@ -113,6 +124,12 @@ if(SIMPLESCRIPTENGINE_ENABLE_ANGELSCRIPT)
     message(STATUS "[SIMPLESCRIPTENGINE] AngelScript enabled")
 endif()
 
+# ---- miniz (bundled zlib replacement) ----
+if(SIMPLESCRIPTENGINE_ENABLE_PAK_PROTECTION)
+    add_subdirectory(${3RDPARTY_PATH}/miniz EXCLUDE_FROM_ALL)
+    message(STATUS "[SIMPLESCRIPTENGINE] miniz (zlib replacement) enabled")
+endif()
+
 
 # ============================================================================
 # 核心库 — SimpleScriptEngine
@@ -129,9 +146,21 @@ if(SIMPLESCRIPTENGINE_BUILD_EXAMPLES)
     add_subdirectory(examples/SimpleScriptEngineExample)
     if(SIMPLESCRIPTENGINE_ENABLE_LUAJIT)
         add_subdirectory(examples/SimpleScriptEngineLuaGetSystemInfo)
-        message(STATUS "[SIMPLESCRIPTENGINE] LuaGetSystemInfo example added")
+    endif()
+    if(SIMPLESCRIPTENGINE_ENABLE_PAK_PROTECTION)
+        add_subdirectory(examples/SSEPakDemo)
+        message(STATUS "[SIMPLESCRIPTENGINE] SSEPakDemo example added")
     endif()
     message(STATUS "[SIMPLESCRIPTENGINE] Example(s) added")
+endif()
+
+# ============================================================================
+# Tools (SSEPakBuilder)
+# ============================================================================
+
+if(SIMPLESCRIPTENGINE_BUILD_TOOLS AND SIMPLESCRIPTENGINE_ENABLE_PAK_PROTECTION)
+    add_subdirectory(tools/SSEPakBuilder)
+    message(STATUS "[SIMPLESCRIPTENGINE] SSEPakBuilder tool added")
 endif()
 
 # ============================================================================
@@ -152,5 +181,12 @@ message(STATUS "    ChaiScript:        ${SIMPLESCRIPTENGINE_ENABLE_CHAISCRIPT}")
 message(STATUS "    AngelScript:       ${SIMPLESCRIPTENGINE_ENABLE_ANGELSCRIPT}")
 message(STATUS "")
 message(STATUS "  Examples:            ${SIMPLESCRIPTENGINE_BUILD_EXAMPLES}")
+message(STATUS "  Tools:               ${SIMPLESCRIPTENGINE_BUILD_TOOLS}")
+message(STATUS "")
+message(STATUS "  SSEP Pak Protection: ${SIMPLESCRIPTENGINE_ENABLE_PAK_PROTECTION}")
+if(SIMPLESCRIPTENGINE_ENABLE_PAK_PROTECTION)
+    message(STATUS "    Anti-Debug Level:  ${SIMPLESCRIPTENGINE_ANTI_DEBUG}")
+    message(STATUS "    Compression:       miniz (bundled)")
+endif()
 message(STATUS "  3rdparty path:       ${3RDPARTY_PATH}")
 message(STATUS "=============================================================================")

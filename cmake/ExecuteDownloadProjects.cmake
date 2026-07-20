@@ -2,6 +2,7 @@ set(PROJECT_NAMES "luajit-rocks"
                 "angelscript"  
                 "quickjs"
                 "ChaiScript"
+                "miniz"
 )
 
 set(luajit-rocks_VERSION_TAG "master")
@@ -15,6 +16,9 @@ set(quickjs_URL "https://github.com/quickjs-ng/quickjs/archive/refs/tags/v${quic
 
 set(ChaiScript_VERSION_TAG "6.1.0")
 set(ChaiScript_URL "https://github.com/ChaiScript/ChaiScript/archive/refs/tags/v${ChaiScript_VERSION_TAG}.zip")
+
+set(miniz_VERSION_TAG "3.1.2")
+set(miniz_URL "https://github.com/richgel999/miniz/archive/refs/tags/${miniz_VERSION_TAG}.zip")
 
 
 
