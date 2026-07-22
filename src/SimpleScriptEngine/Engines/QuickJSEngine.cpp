@@ -130,14 +130,14 @@ public:
     }
 
     SimpleScriptValue eval(const std::string& expr) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
 
         JSValue result = JS_Eval(ctx_, expr.c_str(), expr.size(),
                                  "<eval>", JS_EVAL_TYPE_GLOBAL);
         if (JS_IsException(result)) {
             handleException();
             JS_FreeValue(ctx_, result);
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         SimpleScriptValue val = fromJSValue(result);
@@ -163,7 +163,7 @@ public:
 
     SimpleScriptValue call(const std::string& func,
                            const std::vector<SimpleScriptValue>& args) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
 
         JSValue global = JS_GetGlobalObject(ctx_);
         JSValue funcVal = JS_GetPropertyStr(ctx_, global, func.c_str());
@@ -172,7 +172,7 @@ public:
         if (!JS_IsFunction(ctx_, funcVal)) {
             JS_FreeValue(ctx_, funcVal);
             reportError("Function '" + func + "' not found or not callable");
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         // 构造参数数组
@@ -194,7 +194,7 @@ public:
         if (JS_IsException(result)) {
             handleException();
             JS_FreeValue(ctx_, result);
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         SimpleScriptValue val = fromJSValue(result);
@@ -215,7 +215,7 @@ public:
     }
 
     SimpleScriptValue getGlobal(const std::string& name) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
 
         JSValue global = JS_GetGlobalObject(ctx_);
         JSValue jsVal = JS_GetPropertyStr(ctx_, global, name.c_str());
@@ -330,23 +330,23 @@ private:
 
     SimpleScriptValue fromJSValue(JSValueConst val) {
         if (JS_IsNull(val) || JS_IsUndefined(val)) {
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
         if (JS_IsBool(val)) {
-            return SimpleScriptValue::Bool(JS_ToBool(ctx_, val) != 0);
+            return SimpleScriptValue::boolean(JS_ToBool(ctx_, val) != 0);
         }
         if (JS_IsNumber(val)) {
             int64_t i;
             if (JS_ToInt64(ctx_, &i, val) == 0) {
-                return SimpleScriptValue::Int(i);
+                return SimpleScriptValue::integer(i);
             }
             double d;
             JS_ToFloat64(ctx_, &d, val);
-            return SimpleScriptValue::Num(d);
+            return SimpleScriptValue::number(d);
         }
         if (JS_IsString(val)) {
             const char* s = JS_ToCString(ctx_, val);
-            SimpleScriptValue result = SimpleScriptValue::Str(s ? s : "");
+            SimpleScriptValue result = SimpleScriptValue::string(s ? s : "");
             JS_FreeCString(ctx_, s);
             return result;
         }
@@ -363,7 +363,7 @@ private:
                 arr.push_back(fromJSValue(item));
                 JS_FreeValue(ctx_, item);
             }
-            return SimpleScriptValue(std::move(arr));
+            return SimpleScriptValue::array(std::move(arr));
         }
         if (JS_IsObject(val)) {
             ScriptObject obj;
@@ -384,12 +384,12 @@ private:
                 }
                 js_free(ctx_, tab);
             }
-            return SimpleScriptValue(std::move(obj));
+            return SimpleScriptValue::object(std::move(obj));
         }
         if (JS_IsFunction(ctx_, val)) {
-            return SimpleScriptValue::Str("<js-function>");
+            return SimpleScriptValue::string("<js-function>");
         }
-        return SimpleScriptValue::Null();
+        return SimpleScriptValue::null();
     }
 
     // ---- 静态桥接 ----
@@ -463,7 +463,7 @@ const char* QuickJSEngine::engineVersion() const noexcept {
 }
 
 bool QuickJSEngine::initialize() {
-    impl_->setErrorCallback(errorCallback_);
+    impl_->setErrorCallback(errorCallback());
     return impl_->initialize();
 }
 
@@ -514,13 +514,13 @@ void QuickJSEngine::shutdown() {}
 bool QuickJSEngine::isInitialized() const noexcept { return false; }
 bool QuickJSEngine::executeString(const std::string&) { impl_->reportDisabled(); return false; }
 bool QuickJSEngine::executeFile(const std::string&)    { impl_->reportDisabled(); return false; }
-SimpleScriptValue QuickJSEngine::eval(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::Null(); }
+SimpleScriptValue QuickJSEngine::eval(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::null(); }
 SimpleScriptValue QuickJSEngine::call(const std::string&, const std::vector<SimpleScriptValue>&) {
-    impl_->reportDisabled(); return SimpleScriptValue::Null();
+    impl_->reportDisabled(); return SimpleScriptValue::null();
 }
 bool QuickJSEngine::hasFunction(const std::string&) { impl_->reportDisabled(); return false; }
 void QuickJSEngine::setGlobal(const std::string&, const SimpleScriptValue&) { impl_->reportDisabled(); }
-SimpleScriptValue QuickJSEngine::getGlobal(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::Null(); }
+SimpleScriptValue QuickJSEngine::getGlobal(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::null(); }
 void QuickJSEngine::registerFunction(const std::string&, ScriptFunction) { impl_->reportDisabled(); }
 
 } // namespace SimpleScriptEngine

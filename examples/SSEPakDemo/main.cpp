@@ -1,10 +1,13 @@
 // ============================================================================
-// SSEPakDemo -- .ssep package loader with custom key support
+// SSEPakDemo — 加密脚本包加载 (不需要 include Crypto 头文件)
 // ============================================================================
 
 #include "SimpleScriptManager.h"
-#include "Crypto/SSEPakLoader.h"
+
+#ifdef SIMPLESCRIPTENGINE_ENABLE_PAK_PROTECTION
 #include "Crypto/SSEKeyManager.h"
+#include "Crypto/SSEPakReader.h"
+#endif
 
 #ifdef SIMPLESCRIPTENGINE_ENABLE_LUAJIT
 #include "Engines/LuaJITEngine.h"
@@ -17,8 +20,7 @@
 #include <memory>
 #include <string>
 
-namespace sse  = SimpleScriptEngine;
-namespace ssec = SimpleScriptEngine::Crypto;
+namespace sse = SimpleScriptEngine;
 #ifdef SIMPLESCRIPTENGINE_ENABLE_LUAJIT
 using sse::LuaJITEngine;
 #endif
@@ -26,10 +28,6 @@ using sse::LuaJITEngine;
 using sse::QuickJSEngine;
 #endif
 using sse::SimpleScriptManager;
-using ssec::KeyManager;
-using ssec::LoadResult;
-using ssec::SSEPakLoader;
-using ssec::SSEPakReader;
 
 int main(int argc, char* argv[])
 {
@@ -41,32 +39,31 @@ int main(int argc, char* argv[])
     std::cout << "=== SSEP Pak Demo ===\n";
     std::cout << "Loading: " << pakPath << "\n\n";
 
-    // ---- Step 1: Peek header to detect custom key ----
+    // ---- 检测是否需要自定义密钥 ----
+#ifdef SIMPLESCRIPTENGINE_ENABLE_PAK_PROTECTION
+    using namespace SimpleScriptEngine::Crypto;
+
     bool needsKey = SSEPakReader::pakNeedsCustomKey(pakPath);
-    std::cout << "Custom key required: " << (needsKey ? "YES" : "no (built-in)") << "\n";
+    std::cout << "Custom key required: " << (needsKey ? "YES" : "no") << "\n";
 
     if (needsKey) {
-        // In a real UI app, this would show a dialog box:
-        //   QInputDialog::getText(nullptr, "Key Required", "Enter decryption key:");
-        std::cout << "\nEnter key (hex, e.g. a1b2c3d4...): ";
+        std::cout << "\nEnter key (hex): ";
         std::string hexKey;
         std::getline(std::cin, hexKey);
-
         if (hexKey.empty()) {
             std::cout << "No key provided, aborting.\n";
             return 1;
         }
-
         if (!KeyManager::instance().setCustomKeyHex(hexKey.c_str())) {
-            std::cout << "Invalid key format (need >= 32 hex chars).\n";
+            std::cout << "Invalid key format.\n";
             return 1;
         }
-        std::cout << "Key accepted, attempting to load...\n\n";
+        std::cout << "Key accepted.\n\n";
     }
+#endif
 
-    // ---- Step 2: Register engines ----
+    // ---- 注册引擎 ----
     SimpleScriptManager& mgr = SimpleScriptManager::instance();
-
 #ifdef SIMPLESCRIPTENGINE_ENABLE_LUAJIT
     mgr.registerEngine(std::make_unique<LuaJITEngine>());
     std::cout << "[OK] LuaJIT\n";
@@ -75,25 +72,14 @@ int main(int argc, char* argv[])
     mgr.registerEngine(std::make_unique<QuickJSEngine>());
     std::cout << "[OK] QuickJS\n";
 #endif
-
     mgr.initializeAll();
 
-    // ---- Step 3: Load encrypted package ----
-    SSEPakLoader loader;
-    LoadResult result = loader.loadPak(pakPath, mgr);
+    // ---- 加载加密包 (Crypto 完全不可见) ----
+    bool ok = mgr.executePak(pakPath);
 
     std::cout << "\n--- Result ---\n";
-    std::cout << "Total:   " << result.totalFiles << "\n";
-    std::cout << "Success: " << result.successFiles << "\n";
-    std::cout << "Failed:  " << result.failedFiles << "\n";
-
-    if (!result.failures.empty()) {
-        std::cout << "\nFailures:\n";
-        for (auto& f : result.failures) {
-            std::cout << "  " << f.first << " -> " << f.second << "\n";
-        }
-    }
+    std::cout << "Status: " << (ok ? "SUCCESS" : "FAILED") << "\n";
 
     mgr.shutdownAll();
-    return result.failedFiles > 0 ? 1 : 0;
+    return ok ? 0 : 1;
 }

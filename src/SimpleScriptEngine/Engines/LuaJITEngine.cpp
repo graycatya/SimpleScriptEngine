@@ -96,18 +96,18 @@ public:
     }
 
     SimpleScriptValue eval(const std::string& expr) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
 
         // 拼接 "return " + expr 来求值
         std::string code = "return " + expr;
         int err = luaL_loadstring(L_, code.c_str());
         if (err != LUA_OK) {
             reportError(popString());
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         if (!pcall(0, 1)) {
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         // 从栈顶读取返回值
@@ -131,14 +131,14 @@ public:
 
     SimpleScriptValue call(const std::string& func,
                            const std::vector<SimpleScriptValue>& args) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
 
         // 获取全局函数
         lua_getglobal(L_, func.c_str());
         if (!lua_isfunction(L_, -1)) {
             lua_pop(L_, 1);
             reportError("Function '" + func + "' not found or not callable");
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         // 压入参数
@@ -148,7 +148,7 @@ public:
 
         // 调用
         if (!pcall(static_cast<int>(args.size()), 1)) {
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         // 读取返回值
@@ -166,7 +166,7 @@ public:
     }
 
     SimpleScriptValue getGlobal(const std::string& name) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
         lua_getglobal(L_, name.c_str());
         SimpleScriptValue result = fromLuaStack(-1);
         lua_pop(L_, 1);
@@ -296,16 +296,16 @@ private:
 
         switch (t) {
             case LUA_TNIL:
-                return SimpleScriptValue::Null();
+                return SimpleScriptValue::null();
             case LUA_TBOOLEAN:
-                return SimpleScriptValue::Bool(lua_toboolean(L_, idx) != 0);
+                return SimpleScriptValue::boolean(lua_toboolean(L_, idx) != 0);
             case LUA_TNUMBER:
                 // LuaJIT (Lua 5.1) 中所有数字均为 double，不存在 int/float 区分
-                return SimpleScriptValue::Num(lua_tonumber(L_, idx));
+                return SimpleScriptValue::number(lua_tonumber(L_, idx));
             case LUA_TSTRING: {
                 size_t len;
                 const char* s = lua_tolstring(L_, idx, &len);
-                return SimpleScriptValue::Str(std::string(s, len));
+                return SimpleScriptValue::string(std::string(s, len));
             }
             case LUA_TTABLE: {
                 // 探测是数组还是对象
@@ -336,7 +336,7 @@ private:
                         }
                         lua_pop(L_, 1);
                     }
-                    return SimpleScriptValue(std::move(arr));
+                    return SimpleScriptValue::array(std::move(arr));
                 } else {
                     ScriptObject obj;
                     lua_pushnil(L_);
@@ -351,13 +351,13 @@ private:
                         obj[key] = fromLuaStack(-1);
                         lua_pop(L_, 1);
                     }
-                    return SimpleScriptValue(std::move(obj));
+                    return SimpleScriptValue::object(std::move(obj));
                 }
             }
             case LUA_TFUNCTION:
-                return SimpleScriptValue::Str("<lua-function>");
+                return SimpleScriptValue::string("<lua-function>");
             default:
-                return SimpleScriptValue::Null();
+                return SimpleScriptValue::null();
         }
     }
 
@@ -426,8 +426,7 @@ const char* LuaJITEngine::engineVersion() const noexcept {
 }
 
 bool LuaJITEngine::initialize() {
-    // 设置错误回调前向
-    impl_->setErrorCallback(errorCallback_);
+    impl_->setErrorCallback(errorCallback());
     return impl_->initialize();
 }
 
@@ -497,15 +496,15 @@ bool LuaJITEngine::executeFile(const std::string&) {
     impl_->reportDisabled(); return false;
 }
 SimpleScriptValue LuaJITEngine::eval(const std::string&) {
-    impl_->reportDisabled(); return SimpleScriptValue::Null();
+    impl_->reportDisabled(); return SimpleScriptValue::null();
 }
 SimpleScriptValue LuaJITEngine::call(const std::string&, const std::vector<SimpleScriptValue>&) {
-    impl_->reportDisabled(); return SimpleScriptValue::Null();
+    impl_->reportDisabled(); return SimpleScriptValue::null();
 }
 bool LuaJITEngine::hasFunction(const std::string&) { impl_->reportDisabled(); return false; }
 void LuaJITEngine::setGlobal(const std::string&, const SimpleScriptValue&) { impl_->reportDisabled(); }
 SimpleScriptValue LuaJITEngine::getGlobal(const std::string&) {
-    impl_->reportDisabled(); return SimpleScriptValue::Null();
+    impl_->reportDisabled(); return SimpleScriptValue::null();
 }
 void LuaJITEngine::registerFunction(const std::string&, ScriptFunction) { impl_->reportDisabled(); }
 

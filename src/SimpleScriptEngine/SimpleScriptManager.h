@@ -81,6 +81,15 @@ public:
     /// 通过扩展名查找对应引擎
     SimpleScriptEngine* findEngineByExtension(const std::string& extension) const;
 
+    // ================================================================
+    // 加密脚本包
+    // ================================================================
+
+    /// 加载 .ssep 加密脚本包，按扩展名自动路由到对应引擎执行
+    /// @param pakPath .ssep 文件路径
+    /// @return true 至少有一个脚本成功执行
+    bool executePak(const std::string& pakPath);
+
     /// 检查指定引擎中是否存在某个函数
     /// @param engineName 引擎名，如 "LuaJIT"
     /// @param funcName 函数名

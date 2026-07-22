@@ -161,7 +161,7 @@ public:
     }
 
     SimpleScriptValue eval(const std::string& expr) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
 
         // AngelScript 是静态类型语言，无法像动态语言那样直接求值任意表达式。
         // 采用多趟类型推断：依次尝试 int64 → double → bool，首次编译成功即使用。
@@ -189,7 +189,7 @@ public:
         }
 
         reportError("Eval build failed for expression: " + expr);
-        return SimpleScriptValue::Null();
+        return SimpleScriptValue::null();
     }
 
     // ---- 函数探测 ----
@@ -214,7 +214,7 @@ public:
 
     SimpleScriptValue call(const std::string& funcName,
                            const std::vector<SimpleScriptValue>& args) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
 
         // 在所有已编译模块中查找函数
         asIScriptFunction* func = nullptr;
@@ -234,7 +234,7 @@ public:
 
         if (!func) {
             reportError("Function '" + funcName + "' not found");
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         return callFunction(func, args);
@@ -282,26 +282,26 @@ public:
     }
 
     SimpleScriptValue getGlobal(const std::string& name) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
 
         // 从持久存储中读取
         auto itInt = globalInts_.find(name);
         if (itInt != globalInts_.end())
-            return SimpleScriptValue::Int(itInt->second);
+            return SimpleScriptValue::integer(itInt->second);
 
         auto itDouble = globalDoubles_.find(name);
         if (itDouble != globalDoubles_.end())
-            return SimpleScriptValue::Num(itDouble->second);
+            return SimpleScriptValue::number(itDouble->second);
 
         auto itBool = globalBools_.find(name);
         if (itBool != globalBools_.end())
-            return SimpleScriptValue::Bool(itBool->second);
+            return SimpleScriptValue::boolean(itBool->second);
 
         auto itStr = globalStrings_.find(name);
         if (itStr != globalStrings_.end())
-            return SimpleScriptValue::Str(itStr->second);
+            return SimpleScriptValue::string(itStr->second);
 
-        return SimpleScriptValue::Null();
+        return SimpleScriptValue::null();
     }
 
     // ---- C++ 函数注册 ----
@@ -440,19 +440,19 @@ private:
 
     SimpleScriptValue callFunction(asIScriptFunction* func,
                                     const std::vector<SimpleScriptValue>& args) {
-        if (!func) return SimpleScriptValue::Null();
+        if (!func) return SimpleScriptValue::null();
 
         asIScriptContext* ctx = engine_->RequestContext();
         if (!ctx) {
             reportError("Failed to request context");
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         int r = ctx->Prepare(func);
         if (r < 0) {
             engine_->ReturnContext(ctx);
             reportError("Failed to prepare context");
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         // 设置参数（简化：基本类型参数）
@@ -466,11 +466,11 @@ private:
         if (r != asEXECUTION_FINISHED) {
             engine_->ReturnContext(ctx);
             reportError("Execution failed");
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         // 读取返回值
-        SimpleScriptValue result = SimpleScriptValue::Null();
+        SimpleScriptValue result = SimpleScriptValue::null();
         int retTypeId = func->GetReturnTypeId();
         if (retTypeId != asTYPEID_VOID) {
             result = getContextReturn(ctx, retTypeId);
@@ -512,14 +512,14 @@ private:
 
     SimpleScriptValue getContextReturn(asIScriptContext* ctx, int typeId) {
         switch (typeId) {
-            case asTYPEID_VOID:   return SimpleScriptValue::Null();
-            case asTYPEID_BOOL:   return SimpleScriptValue::Bool(ctx->GetReturnByte() != 0);
-            case asTYPEID_INT8:   return SimpleScriptValue::Int(ctx->GetReturnByte());
-            case asTYPEID_INT16:  return SimpleScriptValue::Int(ctx->GetReturnWord());
-            case asTYPEID_INT32:  return SimpleScriptValue::Int(ctx->GetReturnDWord());
-            case asTYPEID_INT64:  return SimpleScriptValue::Int(static_cast<int64_t>(ctx->GetReturnQWord()));
-            case asTYPEID_FLOAT:  return SimpleScriptValue::Num(ctx->GetReturnFloat());
-            case asTYPEID_DOUBLE: return SimpleScriptValue::Num(ctx->GetReturnDouble());
+            case asTYPEID_VOID:   return SimpleScriptValue::null();
+            case asTYPEID_BOOL:   return SimpleScriptValue::boolean(ctx->GetReturnByte() != 0);
+            case asTYPEID_INT8:   return SimpleScriptValue::integer(ctx->GetReturnByte());
+            case asTYPEID_INT16:  return SimpleScriptValue::integer(ctx->GetReturnWord());
+            case asTYPEID_INT32:  return SimpleScriptValue::integer(ctx->GetReturnDWord());
+            case asTYPEID_INT64:  return SimpleScriptValue::integer(static_cast<int64_t>(ctx->GetReturnQWord()));
+            case asTYPEID_FLOAT:  return SimpleScriptValue::number(ctx->GetReturnFloat());
+            case asTYPEID_DOUBLE: return SimpleScriptValue::number(ctx->GetReturnDouble());
             default: {
                 // 处理对象/引用类型返回值（如 string）
                 if (typeId & asTYPEID_OBJHANDLE) {
@@ -527,9 +527,9 @@ private:
                 }
                 if (typeId == stringTypeId_ && ctx->GetReturnObject()) {
                     auto* str = static_cast<std::string*>(ctx->GetReturnObject());
-                    return SimpleScriptValue::Str(*str);
+                    return SimpleScriptValue::string(*str);
                 }
-                return SimpleScriptValue::Null();
+                return SimpleScriptValue::null();
             }
         }
     }
@@ -555,7 +555,7 @@ const char* AngelScriptEngine::engineVersion() const noexcept {
 }
 
 bool AngelScriptEngine::initialize() {
-    impl_->setErrorCallback(errorCallback_);
+    impl_->setErrorCallback(errorCallback());
     return impl_->initialize();
 }
 
@@ -606,13 +606,13 @@ void AngelScriptEngine::shutdown() {}
 bool AngelScriptEngine::isInitialized() const noexcept { return false; }
 bool AngelScriptEngine::executeString(const std::string&) { impl_->reportDisabled(); return false; }
 bool AngelScriptEngine::executeFile(const std::string&)    { impl_->reportDisabled(); return false; }
-SimpleScriptValue AngelScriptEngine::eval(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::Null(); }
+SimpleScriptValue AngelScriptEngine::eval(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::null(); }
 SimpleScriptValue AngelScriptEngine::call(const std::string&, const std::vector<SimpleScriptValue>&) {
-    impl_->reportDisabled(); return SimpleScriptValue::Null();
+    impl_->reportDisabled(); return SimpleScriptValue::null();
 }
 bool AngelScriptEngine::hasFunction(const std::string&) { impl_->reportDisabled(); return false; }
 void AngelScriptEngine::setGlobal(const std::string&, const SimpleScriptValue&) { impl_->reportDisabled(); }
-SimpleScriptValue AngelScriptEngine::getGlobal(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::Null(); }
+SimpleScriptValue AngelScriptEngine::getGlobal(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::null(); }
 void AngelScriptEngine::registerFunction(const std::string&, ScriptFunction) { impl_->reportDisabled(); }
 
 } // namespace SimpleScriptEngine

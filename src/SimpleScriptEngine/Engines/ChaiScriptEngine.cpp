@@ -88,13 +88,13 @@ public:
     }
 
     SimpleScriptValue eval(const std::string& expr) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
         try {
             auto boxed = chai_->eval(expr);
             return fromBoxedValue(boxed);
         } catch (const std::exception& e) {
             reportError(std::string("eval error: ") + e.what());
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
     }
 
@@ -114,7 +114,7 @@ public:
 
     SimpleScriptValue call(const std::string& func,
                            const std::vector<SimpleScriptValue>& args) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
         try {
             // 构建调用表达式，将简单类型参数内联到表达式字符串中
             std::ostringstream callExpr;
@@ -150,7 +150,7 @@ public:
             return fromBoxedValue(chai_->eval(callExpr.str()));
         } catch (const std::exception& e) {
             reportError(std::string("call error: ") + e.what());
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
     }
 
@@ -164,12 +164,12 @@ public:
     }
 
     SimpleScriptValue getGlobal(const std::string& name) {
-        if (!ensureInit()) return SimpleScriptValue::Null();
+        if (!ensureInit()) return SimpleScriptValue::null();
         try {
             auto boxed = chai_->eval(name);
             return fromBoxedValue(boxed);
         } catch (const std::exception& e) {
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
     }
 
@@ -260,28 +260,28 @@ private:
         using chaiscript::user_type;
 
         if (bv.is_undef() || bv.is_null()) {
-            return SimpleScriptValue::Null();
+            return SimpleScriptValue::null();
         }
 
         const auto& ti = bv.get_type_info();
 
         if (ti.bare_equal(user_type<bool>())) {
-            return SimpleScriptValue::Bool(boxed_cast<bool>(bv));
+            return SimpleScriptValue::boolean(boxed_cast<bool>(bv));
         }
         if (ti.bare_equal(user_type<int>())) {
-            return SimpleScriptValue::Int(boxed_cast<int>(bv));
+            return SimpleScriptValue::integer(boxed_cast<int>(bv));
         }
         if (ti.bare_equal(user_type<int64_t>())) {
-            return SimpleScriptValue::Int(boxed_cast<int64_t>(bv));
+            return SimpleScriptValue::integer(boxed_cast<int64_t>(bv));
         }
         if (ti.bare_equal(user_type<double>())) {
-            return SimpleScriptValue::Num(boxed_cast<double>(bv));
+            return SimpleScriptValue::number(boxed_cast<double>(bv));
         }
         if (ti.bare_equal(user_type<float>())) {
-            return SimpleScriptValue::Num(boxed_cast<float>(bv));
+            return SimpleScriptValue::number(boxed_cast<float>(bv));
         }
         if (ti.bare_equal(user_type<std::string>())) {
-            return SimpleScriptValue::Str(boxed_cast<std::string>(bv));
+            return SimpleScriptValue::string(boxed_cast<std::string>(bv));
         }
         if (ti.bare_equal(user_type<std::vector<chaiscript::Boxed_Value>>())) {
             const auto& vec = boxed_cast<const std::vector<chaiscript::Boxed_Value>&>(bv);
@@ -290,7 +290,7 @@ private:
             for (auto& item : vec) {
                 arr.push_back(fromBoxedValue(item));
             }
-            return SimpleScriptValue(std::move(arr));
+            return SimpleScriptValue::array(std::move(arr));
         }
         if (ti.bare_equal(user_type<std::map<std::string, chaiscript::Boxed_Value>>())) {
             const auto& map = boxed_cast<const std::map<std::string, chaiscript::Boxed_Value>&>(bv);
@@ -298,14 +298,14 @@ private:
             for (auto& kv : map) {
                 obj[kv.first] = fromBoxedValue(kv.second);
             }
-            return SimpleScriptValue(std::move(obj));
+            return SimpleScriptValue::object(std::move(obj));
         }
 
         // 对其他类型尝试转为 string
         try {
-            return SimpleScriptValue::Str(boxed_cast<std::string>(bv));
+            return SimpleScriptValue::string(boxed_cast<std::string>(bv));
         } catch (...) {
-            return SimpleScriptValue::Str("<unknown-chaiscript-type>");
+            return SimpleScriptValue::string("<unknown-chaiscript-type>");
         }
     }
 };
@@ -330,7 +330,7 @@ const char* ChaiScriptEngine::engineVersion() const noexcept {
 }
 
 bool ChaiScriptEngine::initialize() {
-    impl_->setErrorCallback(errorCallback_);
+    impl_->setErrorCallback(errorCallback());
     return impl_->initialize();
 }
 
@@ -381,13 +381,13 @@ void ChaiScriptEngine::shutdown() {}
 bool ChaiScriptEngine::isInitialized() const noexcept { return false; }
 bool ChaiScriptEngine::executeString(const std::string&) { impl_->reportDisabled(); return false; }
 bool ChaiScriptEngine::executeFile(const std::string&)    { impl_->reportDisabled(); return false; }
-SimpleScriptValue ChaiScriptEngine::eval(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::Null(); }
+SimpleScriptValue ChaiScriptEngine::eval(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::null(); }
 SimpleScriptValue ChaiScriptEngine::call(const std::string&, const std::vector<SimpleScriptValue>&) {
-    impl_->reportDisabled(); return SimpleScriptValue::Null();
+    impl_->reportDisabled(); return SimpleScriptValue::null();
 }
 bool ChaiScriptEngine::hasFunction(const std::string&) { impl_->reportDisabled(); return false; }
 void ChaiScriptEngine::setGlobal(const std::string&, const SimpleScriptValue&) { impl_->reportDisabled(); }
-SimpleScriptValue ChaiScriptEngine::getGlobal(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::Null(); }
+SimpleScriptValue ChaiScriptEngine::getGlobal(const std::string&) { impl_->reportDisabled(); return SimpleScriptValue::null(); }
 void ChaiScriptEngine::registerFunction(const std::string&, ScriptFunction) { impl_->reportDisabled(); }
 
 } // namespace SimpleScriptEngine

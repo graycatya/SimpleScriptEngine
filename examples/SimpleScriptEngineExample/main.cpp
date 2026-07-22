@@ -165,15 +165,15 @@ static void testEngineSetGetGlobal(std::unique_ptr<ScriptEngine> engine) {
 
     // setGlobal
     TEST(std::string(name) + " — setGlobal (int)");
-    engine->setGlobal("test_int", SimpleScriptValue::Int(42));
+    engine->setGlobal("test_int", SimpleScriptValue::integer(42));
     PASS();
 
     TEST(std::string(name) + " — setGlobal (string)");
-    engine->setGlobal("test_str", SimpleScriptValue::Str("hello"));
+    engine->setGlobal("test_str", SimpleScriptValue::string("hello"));
     PASS();
 
     TEST(std::string(name) + " — setGlobal (bool)");
-    engine->setGlobal("test_bool", SimpleScriptValue::Bool(true));
+    engine->setGlobal("test_bool", SimpleScriptValue::boolean(true));
     PASS();
 
     // getGlobal
@@ -188,10 +188,10 @@ static void testEngineSetGetGlobal(std::unique_ptr<ScriptEngine> engine) {
 
     // setGlobal Array
     TEST(std::string(name) + " — setGlobal (array)");
-    engine->setGlobal("test_arr", SimpleScriptValue::Arr({
-        SimpleScriptValue::Int(1),
-        SimpleScriptValue::Int(2),
-        SimpleScriptValue::Int(3)
+    engine->setGlobal("test_arr", SimpleScriptValue::arr({
+        SimpleScriptValue::integer(1),
+        SimpleScriptValue::integer(2),
+        SimpleScriptValue::integer(3)
     }));
     PASS();
 
@@ -210,7 +210,7 @@ static void testEngineExecuteString(std::unique_ptr<ScriptEngine> engine) {
         TEST(std::string(name) + " — call script function");
         engine->executeString("function add(a, b) return a + b end");
         auto result = engine->call("add", {
-            SimpleScriptValue::Num(3.0), SimpleScriptValue::Num(4.0)
+            SimpleScriptValue::number(3.0), SimpleScriptValue::number(4.0)
         });
         CHECK(result.asDouble() == 7.0, "expected 7.0, got " + result.toString());
     } else if (std::string(name) == "QuickJS") {
@@ -221,7 +221,7 @@ static void testEngineExecuteString(std::unique_ptr<ScriptEngine> engine) {
         TEST(std::string(name) + " — call script function");
         engine->executeString("function add(a, b) { return a + b; }");
         auto result = engine->call("add", {
-            SimpleScriptValue::Int(3), SimpleScriptValue::Int(4)
+            SimpleScriptValue::integer(3), SimpleScriptValue::integer(4)
         });
         CHECK(result.asInt() == 7, "expected 7, got " + result.toString());
     } else if (std::string(name) == "ChaiScript") {
@@ -232,7 +232,7 @@ static void testEngineExecuteString(std::unique_ptr<ScriptEngine> engine) {
         TEST(std::string(name) + " — call script function");
         engine->executeString("def add(a, b) { return a + b; }");
         auto result = engine->call("add", {
-            SimpleScriptValue::Int(3), SimpleScriptValue::Int(4)
+            SimpleScriptValue::integer(3), SimpleScriptValue::integer(4)
         });
         CHECK(result.asInt() == 7, "expected 7, got " + result.toString());
     } else if (std::string(name) == "AngelScript") {
@@ -243,7 +243,7 @@ static void testEngineExecuteString(std::unique_ptr<ScriptEngine> engine) {
         TEST(std::string(name) + " — call script function");
         engine->executeString("int add(int a, int b) { return a + b; }");
         auto result = engine->call("add", {
-            SimpleScriptValue::Int(3), SimpleScriptValue::Int(4)
+            SimpleScriptValue::integer(3), SimpleScriptValue::integer(4)
         });
         CHECK(result.asInt() == 7, "expected 7, got " + result.toString());
     }
@@ -258,8 +258,8 @@ static void testRegisterFunction(std::unique_ptr<ScriptEngine> engine) {
     // 注册一个 C++ 函数到脚本
     TEST(std::string(name) + " — registerFunction");
     engine->registerFunction("cpp_add", [](const std::vector<SimpleScriptValue>& args) -> SimpleScriptValue {
-        if (args.size() < 2) return SimpleScriptValue::Null();
-        return SimpleScriptValue::Int(args[0].asInt() + args[1].asInt());
+        if (args.size() < 2) return SimpleScriptValue::null();
+        return SimpleScriptValue::integer(args[0].asInt() + args[1].asInt());
     });
     PASS();
 
@@ -332,7 +332,7 @@ static void testEngineExecuteFile(std::unique_ptr<ScriptEngine> engine) {
     // 执行后调用文件中定义的函数
     TEST(std::string(name) + " — call after executeFile");
     auto result = engine->call(callCode, {
-        SimpleScriptValue::Int(6), SimpleScriptValue::Int(7)
+        SimpleScriptValue::integer(6), SimpleScriptValue::integer(7)
     });
     CHECK(result.asInt() == 42, "expected 42, got " + result.toString());
 
@@ -350,35 +350,35 @@ static void testSimpleScriptValue() {
     std::cout << "\n--- SimpleScriptValue 类型测试 ---\n\n";
 
     TEST("Null value");
-    auto n = SimpleScriptValue::Null();
+    auto n = SimpleScriptValue::null();
     CHECK(n.isNull() && n.type() == ScriptValueType::Null, "not null");
 
     TEST("Bool value");
-    auto b = SimpleScriptValue::Bool(true);
+    auto b = SimpleScriptValue::boolean(true);
     CHECK(b.isBool() && b.asBool() == true, "not bool/true");
 
     TEST("Int value");
-    auto i = SimpleScriptValue::Int(42);
+    auto i = SimpleScriptValue::integer(42);
     CHECK(i.isInt() && i.asInt() == 42, "not int/42");
 
     TEST("Num (double) value");
-    auto d = SimpleScriptValue::Num(3.14);
+    auto d = SimpleScriptValue::number(3.14);
     CHECK(d.isDouble() && d.asDouble() == 3.14, "not double/3.14");
 
     TEST("String value");
-    auto s = SimpleScriptValue::Str("hello world");
+    auto s = SimpleScriptValue::string("hello world");
     CHECK(s.isString() && s.asString() == "hello world", "not string");
 
     TEST("Array value");
-    auto arr = SimpleScriptValue::Arr({
-        SimpleScriptValue::Int(1), SimpleScriptValue::Int(2)
+    auto arr = SimpleScriptValue::arr({
+        SimpleScriptValue::integer(1), SimpleScriptValue::integer(2)
     });
     CHECK(arr.isArray() && arr.asArray().size() == 2, "not array/size=2");
 
     TEST("Object value");
-    auto obj = SimpleScriptValue::Obj({
-        {"name", SimpleScriptValue::Str("test")},
-        {"count", SimpleScriptValue::Int(10)}
+    auto obj = SimpleScriptValue::obj({
+        {"name", SimpleScriptValue::string("test")},
+        {"count", SimpleScriptValue::integer(10)}
     });
     CHECK(obj.isObject() && !obj.asObject().empty(), "not object/empty");
 
@@ -601,7 +601,7 @@ static void testManager() {
 
     // 跨引擎共享全局变量
     TEST("Manager — setSharedGlobal");
-    mgr.setSharedGlobal("shared_var", SimpleScriptValue::Int(999));
+    mgr.setSharedGlobal("shared_var", SimpleScriptValue::integer(999));
     PASS();
 
     TEST("Manager — getSharedGlobal");

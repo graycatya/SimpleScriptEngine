@@ -24,6 +24,8 @@ set(CORE_HEADERS
 )
 
 set(CORE_SOURCES
+    SimpleScriptValue.cpp
+    SimpleScriptEngine.cpp
     SimpleScriptManager.cpp
 )
 
@@ -209,14 +211,4 @@ install(FILES
     DESTINATION include/SimpleScriptEngine/Engines
 )
 
-if(SIMPLESCRIPTENGINE_ENABLE_PAK_PROTECTION)
-    install(FILES
-        Crypto/SSEPakFormat.h
-        Crypto/SSECrypto.h
-        Crypto/SSEKeyManager.h
-        Crypto/SSEAntiDebug.h
-        Crypto/SSEPakReader.h
-        Crypto/SSEPakLoader.h
-        DESTINATION include/SimpleScriptEngine/Crypto
-    )
-endif()
+
